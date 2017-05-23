@@ -24,6 +24,7 @@
             <tr>
               <th>Patient ID</th>
               <th>Phone registered</th>
+              <th>Date registered</th>
               <th>Phone OS</th>
               <th>Reset password</th>
             </tr>
@@ -41,6 +42,22 @@
                   {% else %}
                     No smartphone registered
                   {% endif %}
+                </td>
+                <td>
+                    <div class="input-group">
+                        <input type="text" id="{{ patient['_id'] }}_datepicker" class="form-control datepicker" value={{ patient.date_registered }}>
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-warning set_date_button" onclick="set_date_registered('{{study._id}}','{{ patient['_id'] }}')">Set Date</button>
+                        </span>
+                    </div>
+                    <script>
+                        $('.datepicker').datepicker({
+                            format: 'mm/dd/yyyy',
+                            autoclose: true,
+                            clearBtn: true,
+
+                        });
+                    </script>
                 </td>
                 <td>
                   {% if 'os_type' in patient and patient['os_type'] != None %}

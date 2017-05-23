@@ -1,4 +1,5 @@
 import os
+import time
 from db.mongolia_setup import DatabaseObject, DatabaseCollection, REQUIRED, ID_KEY
 from libs.security import (generate_hash_and_salt, generate_user_hash_and_salt,
                            compare_password, device_hash, generate_user_password_and_salt,
@@ -26,7 +27,8 @@ class User( DatabaseObject ):
                 'device_id':None,
                 'salt':REQUIRED,
                 'study_id':REQUIRED,
-                'os_type': None }
+                'os_type': None,
+                'date_registered': None}
     
     @classmethod
     def create(cls, study_id):
@@ -59,6 +61,11 @@ class User( DatabaseObject ):
     def set_device(self, device_id):
         """ Sets the device id to the new value"""
         self['device_id'] =  device_id
+        self['date_registered'] = time.strftime("%m/%d/%Y")
+        self.save()
+
+    def set_date(self, date):
+        self['date_registered'] = date
         self.save()
 
     def set_os_type(self, os_type):
@@ -69,6 +76,7 @@ class User( DatabaseObject ):
     def clear_device(self):
         """ Clears the device entry."""
         self['device_id'] =  None
+        self['date_registered'] = None
         self.save()
     
     def set_password(self, password):

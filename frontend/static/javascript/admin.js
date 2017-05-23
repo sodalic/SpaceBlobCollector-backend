@@ -135,3 +135,21 @@ function confirm_delete_study(study_name, study_id) {
         });
     };
 }
+
+function set_date_registered(study_id, patient_id) {
+    var date = $("#" + patient_id + "_datepicker").val();
+    $('.set_date_button').prop('disabled', true);   //Disable the button
+    $.ajax({
+        type: 'POST',
+        url: '/set_date_registered/' + study_id,
+        data: {
+            'patient_id': patient_id,
+            'date' : date
+        }
+    }).done(function() {
+        $('.set_date_button').prop('disabled', false);
+    }).fail(function() {
+        alert("Sorry, something went wrong when trying to set the patient's date registered")
+        $('.set_date_button').prop('disabled', false);
+    });
+}

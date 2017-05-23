@@ -80,6 +80,7 @@ def reset_user_password(study_id=None):
     if User.exists(patient_id) and User(patient_id).study_id == study_id:
         user = User(patient_id)
         new_password = user.reset_password()
+        # todo: isn't this redundant?
         user.set_password(new_password)
         return make_response(new_password, 201)
     return make_response("that patient id does not exist", 404)
@@ -110,6 +111,16 @@ def create_new_patient(study_id=None):
     response_string = "patient_id: " + patient_id + "\npassword: " + password
     return make_response(response_string, 201)
 
+@admin_api.route('/set_date_registered/<string:study_id>', methods=["POST"])
+@authenticate_admin_study_access
+def set_date_registered(study_id=None):
+    patient_id = request.values["patient_id"]
+    date = request.values["date"]
+    if User.exists(patient_id) and User(patient_id).study_id == study_id:
+        user = User(patient_id)
+        user.set_date(date)
+        return make_response("date registered was reset", 201)
+    return make_response("that patient id does not exist", 404)
 
 @admin_api.route('/create_many_patients/<string:study_id>', methods=["POST"])
 @authenticate_admin_study_access
