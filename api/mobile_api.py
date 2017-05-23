@@ -187,6 +187,8 @@ def register_user(OS_API=""):
     except BadRequestKeyError: beiwe_version = "none"
     try: fcm_instance_id = request.values['fcm_instance_id']
     except BadRequestKeyError: fcm_instance_id = "none"
+    try: timezone_str = request.values['timezone']
+    except BadRequestKeyError: timezone_str = "none"
     #This value may not be returned by later versions of the beiwe app.
     try: mac_address = request.values['bluetooth_id']
     except BadRequestKeyError: mac_address = "none"
@@ -218,6 +220,9 @@ def register_user(OS_API=""):
     fcm_instance_id == 'none', then the app should not be allowed to register.
     Also save the user's fcm_instance_id in the database so we can send push
     notifications to that user. """
+
+    #TODO: try to parse the timezone using the pytz library
+    """ If you can't parse the timezone, set it to 'America/New_York' """
 
     # At this point the device has been checked for validity and will be
     # registered successfully.  Any errors after this point will be server errors
