@@ -24,7 +24,7 @@
             <tr>
               <th>Patient ID</th>
               <th>Phone registered</th>
-              <th>Date registered</th>
+              <th>Study start date</th>
               <th>Phone OS</th>
               <th>Reset password</th>
             </tr>
@@ -44,20 +44,26 @@
                   {% endif %}
                 </td>
                 <td>
-                    <div class="input-group">
-                        <input type="text" id="{{ patient['_id'] }}_datepicker" class="form-control datepicker" value={{ patient.date_registered }}>
-                        <span class="input-group-btn">
-                            <button type="button" class="btn btn-warning set_date_button" onclick="set_date_registered('{{study._id}}','{{ patient['_id'] }}')">Set Date</button>
-                        </span>
-                    </div>
-                    <script>
-                        $('.datepicker').datepicker({
-                            format: 'mm/dd/yyyy',
-                            autoclose: true,
-                            clearBtn: true,
-
-                        });
-                    </script>
+                    <p id="{{ patient['_id'] }}_datepicker">
+                        {% if patient['edited_date_registered'] != None %}
+                            {% if patient['original_date_registered'] != None %}
+                                <span style="color:red" data-toggle="tooltip" title="Date has been manually edited. Patient originally started on {{ patient['original_date_registered'] }}">
+                                    {{ patient['edited_date_registered'] }}
+                                </span>
+                            {% else %}
+                                <span style="color:red" data-toggle="tooltip" title="Date has been manually edited.">
+                                    {{ patient['edited_date_registered'] }}
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            {% if patient['original_date_registered'] != None %}
+                                {{ patient['original_date_registered'] }}
+                            {% else%}
+                                <i>unknown</i>
+                            {% endif %}
+                        {% endif %}
+                        <a href="#" class="datepicker" id="{{ patient['_id'] }}"><span class="glyphicon glyphicon-pencil"></span></a>
+                    </p>
                 </td>
                 <td>
                   {% if 'os_type' in patient and patient['os_type'] != None %}
@@ -71,7 +77,17 @@
                 </td>
               </tr>
             {% endfor %}
+            <script>
+                $('.datepicker').datepicker({
+                    format: 'mm/dd/yyyy',
+                    autoclose: true,
+                    clearBtn: true
+                }).on('changeDate', function(e) {
+                    set_date_registered('{{study._id}}', e.target.id);
+                });
+                $('[data-toggle="tooltip"]').tooltip();
 
+            </script>
           </tbody>
         </table>
 

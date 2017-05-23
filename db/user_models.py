@@ -28,7 +28,8 @@ class User( DatabaseObject ):
                 'salt':REQUIRED,
                 'study_id':REQUIRED,
                 'os_type': None,
-                'date_registered': None}
+                'original_date_registered': None,
+                'edited_date_registered': None}
     
     @classmethod
     def create(cls, study_id):
@@ -61,11 +62,12 @@ class User( DatabaseObject ):
     def set_device(self, device_id):
         """ Sets the device id to the new value"""
         self['device_id'] =  device_id
-        self['date_registered'] = time.strftime("%m/%d/%Y")
+        self['original_date_registered'] = time.strftime("%m/%d/%Y")
         self.save()
 
     def set_date(self, date):
-        self['date_registered'] = date
+        formatted_date = time.strptime(date, "%a, %d %b %Y %H:%M:%S %Z")
+        self['edited_date_registered'] = time.strftime("%m/%d/%Y", formatted_date)
         self.save()
 
     def set_os_type(self, os_type):
@@ -76,7 +78,8 @@ class User( DatabaseObject ):
     def clear_device(self):
         """ Clears the device entry."""
         self['device_id'] =  None
-        self['date_registered'] = None
+        self['original_date_registered'] = None
+        self['edited_date_registered'] = None
         self.save()
     
     def set_password(self, password):

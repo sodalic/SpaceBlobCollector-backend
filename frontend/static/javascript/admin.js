@@ -13,6 +13,7 @@ $(document).ready(function(){
     $('#addManyPatientsModal').on("hidden.bs.modal", function() {
         location.reload();
     });
+
 });
 
 function logout() {
@@ -137,19 +138,18 @@ function confirm_delete_study(study_name, study_id) {
 }
 
 function set_date_registered(study_id, patient_id) {
-    var date = $("#" + patient_id + "_datepicker").val();
-    $('.set_date_button').prop('disabled', true);   //Disable the button
+    var date = $("#" + patient_id).datepicker("getDate")
+    var date_str = date.toUTCString();
     $.ajax({
         type: 'POST',
         url: '/set_date_registered/' + study_id,
         data: {
             'patient_id': patient_id,
-            'date' : date
+            'date' : date_str
         }
     }).done(function() {
-        $('.set_date_button').prop('disabled', false);
+        location.reload();
     }).fail(function() {
-        alert("Sorry, something went wrong when trying to set the patient's date registered")
-        $('.set_date_button').prop('disabled', false);
+        alert("Sorry, something went wrong when trying to set the patient's date registered");
     });
 }
