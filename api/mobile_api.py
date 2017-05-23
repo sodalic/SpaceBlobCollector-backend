@@ -185,6 +185,8 @@ def register_user(OS_API=""):
     except BadRequestKeyError: model = "none"
     try: beiwe_version = request.values["beiwe_version"]
     except BadRequestKeyError: beiwe_version = "none"
+    try: fcm_instance_id = request.values['fcm_instance_id']
+    except BadRequestKeyError: fcm_instance_id = "none"
     #This value may not be returned by later versions of the beiwe app.
     try: mac_address = request.values['bluetooth_id']
     except BadRequestKeyError: mac_address = "none"
@@ -209,6 +211,13 @@ def register_user(OS_API=""):
         # with a different device type. To keep the CSV munging code sane and data
         # consistent (don't cross the iOS and Android data streams!) we disallow it.
         return abort(400)
+
+    #TODO: check the variable fcm_instance_id; it's what we'll use to send push notifications.
+    """ If it's a new study that supports push notifications, the app must have
+    submitted an fcm_instance_id that is not 'none'.  If it's a new study and
+    fcm_instance_id == 'none', then the app should not be allowed to register.
+    Also save the user's fcm_instance_id in the database so we can send push
+    notifications to that user. """
 
     # At this point the device has been checked for validity and will be
     # registered successfully.  Any errors after this point will be server errors
