@@ -45,24 +45,45 @@
                 </td>
                 <td>
                     <p id="{{ patient['_id'] }}_datepicker">
+
                         {% if patient['edited_date_registered'] != None %}
                             {% if patient['original_date_registered'] != None %}
                                 <span style="color:red" data-toggle="tooltip" title="Date has been manually edited. Patient originally started on {{ patient['original_date_registered'] }}">
-                                    {{ patient['edited_date_registered'] }}
+                                    {{ patient['edited_date_registered'].date()}}
                                 </span>
                             {% else %}
                                 <span style="color:red" data-toggle="tooltip" title="Date has been manually edited.">
-                                    {{ patient['edited_date_registered'] }}
+                                    {{ patient['edited_date_registered'].date()}}
                                 </span>
                             {% endif %}
                         {% else %}
                             {% if patient['original_date_registered'] != None %}
-                                {{ patient['original_date_registered'] }}
-                            {% else%}
+                                {{ patient['original_date_registered'].date()}}
+                            {% else %}
                                 <i>unknown</i>
                             {% endif %}
                         {% endif %}
                         <a href="#" class="datepicker" id="{{ patient['_id'] }}"><span class="glyphicon glyphicon-pencil"></span></a>
+                        <script>
+                            $('.datepicker').datepicker({
+                                format: 'yyyy-mm-dd',
+                                autoclose: true,
+                                clearBtn: true,
+                                {% if patient['edited_date_registered'] != None %}
+                                    defaultViewDate: {
+                                        year: {{ patient['edited_date_registered'].date().year }},
+                                        month: {{ patient['edited_date_registered'].date().month - 1 }},
+                                        day: {{ patient['edited_date_registered'].date().day }}
+                                    },
+                                {% elif patient['original_date_registered'] != None %}
+                                    defaultViewDate: {
+                                        year: {{ patient['original_date_registered'].date().year }},
+                                        month: {{ patient['original_date_registered'].date().month - 1 }},
+                                        day: {{ patient['original_date_registered'].date().day }}
+                                    }
+                                {% endif %}
+                            });
+                        </script>
                     </p>
                 </td>
                 <td>
@@ -78,11 +99,8 @@
               </tr>
             {% endfor %}
             <script>
-                $('.datepicker').datepicker({
-                    format: 'mm/dd/yyyy',
-                    autoclose: true,
-                    clearBtn: true
-                }).on('changeDate', function(e) {
+                $('.datepicker').datepicker()
+                    .on('changeDate', function(e) {
                     set_date_registered('{{study._id}}', e.target.id);
                 });
                 $('[data-toggle="tooltip"]').tooltip();

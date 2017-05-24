@@ -1,5 +1,6 @@
 import os
 import time
+import datetime
 from db.mongolia_setup import DatabaseObject, DatabaseCollection, REQUIRED, ID_KEY
 from libs.security import (generate_hash_and_salt, generate_user_hash_and_salt,
                            compare_password, device_hash, generate_user_password_and_salt,
@@ -29,7 +30,8 @@ class User( DatabaseObject ):
                 'study_id':REQUIRED,
                 'os_type': None,
                 'original_date_registered': None,
-                'edited_date_registered': None}
+                'edited_date_registered': None,
+                'timezone': None}
     
     @classmethod
     def create(cls, study_id):
@@ -62,12 +64,12 @@ class User( DatabaseObject ):
     def set_device(self, device_id):
         """ Sets the device id to the new value"""
         self['device_id'] =  device_id
-        self['original_date_registered'] = time.strftime("%m/%d/%Y")
+        self['original_date_registered'] = datetime.datetime.now()
         self.save()
 
     def set_date(self, date):
-        formatted_date = time.strptime(date, "%a, %d %b %Y %H:%M:%S %Z")
-        self['edited_date_registered'] = time.strftime("%m/%d/%Y", formatted_date)
+        formatted_date = datetime.datetime.strptime(date, "%a, %d %b %Y %H:%M:%S %Z")
+        self['edited_date_registered'] = formatted_date
         self.save()
 
     def set_os_type(self, os_type):
