@@ -223,7 +223,7 @@ def register_user(OS_API=""):
 
     #TODO: try to parse the timezone using the pytz library
     """ If you can't parse the timezone, set it to 'America/New_York' """
-    if timezone_str in pytz.all_timezones:
+    if timezone_str in pytz.common_timezones:
         user['timezone'] = timezone_str
     else:
         user['timezone'] = 'America/New_York'
