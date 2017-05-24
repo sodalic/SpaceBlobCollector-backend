@@ -25,6 +25,7 @@
               <th>Patient ID</th>
               <th>Phone registered</th>
               <th>Study start date</th>
+              <th>Timezone</th>
               <th>Phone OS</th>
               <th>Reset password</th>
             </tr>
@@ -85,6 +86,13 @@
                             });
                         </script>
                     </p>
+                </td>
+                <td>
+                    {% if patient['timezone'] != None %}
+                        {{ patient['timezone'] }}
+                    {% else %}
+                        <i>unknown</i>
+                    {% endif %}
                 </td>
                 <td>
                   {% if 'os_type' in patient and patient['os_type'] != None %}

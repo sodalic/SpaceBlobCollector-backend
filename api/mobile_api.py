@@ -1,4 +1,4 @@
-import calendar, time
+import calendar, time, pytz
 
 from datetime import datetime
 from flask import Blueprint, request, abort, render_template, json
@@ -223,6 +223,10 @@ def register_user(OS_API=""):
 
     #TODO: try to parse the timezone using the pytz library
     """ If you can't parse the timezone, set it to 'America/New_York' """
+    if timezone_str in pytz.all_timezones:
+        user['timezone'] = timezone_str
+    else:
+        user['timezone'] = 'America/New_York'
 
     # At this point the device has been checked for validity and will be
     # registered successfully.  Any errors after this point will be server errors
