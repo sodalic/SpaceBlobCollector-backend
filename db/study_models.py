@@ -11,7 +11,8 @@ class Study( DatabaseObject ):
                  "surveys": [],         #the surveys pushed in this study.
                  "device_settings": REQUIRED,  #the device settings for the study.
                  "encryption_key": REQUIRED, #the study's config encryption key.
-                 "deleted": False 
+                 "uses_push_notifications": True,
+                 "deleted": False
                 }
     
     @classmethod
