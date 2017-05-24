@@ -228,6 +228,7 @@ def register_user(OS_API=""):
     else:
         user['timezone'] = 'America/New_York'
 
+
     # At this point the device has been checked for validity and will be
     # registered successfully.  Any errors after this point will be server errors
     # and return 500 codes
