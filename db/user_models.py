@@ -31,7 +31,8 @@ class User( DatabaseObject ):
                 'os_type': None,
                 'original_date_registered': None,
                 'edited_date_registered': None,
-                'timezone': None}
+                'timezone': None,
+                'push_notification_token': None}
     
     @classmethod
     def create(cls, study_id):

@@ -220,6 +220,11 @@ def register_user(OS_API=""):
     fcm_instance_id == 'none', then the app should not be allowed to register.
     Also save the user's fcm_instance_id in the database so we can send push
     notifications to that user. """
+    if Study(study_id)['uses_push_notifications']:
+        if fcm_instance_id == None:
+            return abort(400)
+        user['push_notification_id'] = fcm_instance_id
+
 
     #TODO: try to parse the timezone using the pytz library
     """ If you can't parse the timezone, set it to 'America/New_York' """

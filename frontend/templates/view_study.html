@@ -24,8 +24,10 @@
             <tr>
               <th>Patient ID</th>
               <th>Phone registered</th>
-              <th>Study start date</th>
-              <th>Timezone</th>
+                {% if study['uses_push_notifications'] %}
+                    <th>Study start date</th>
+                    <th>Timezone</th>
+                {% endif %}
               <th>Phone OS</th>
               <th>Reset password</th>
             </tr>
@@ -44,6 +46,7 @@
                     No smartphone registered
                   {% endif %}
                 </td>
+              {% if study['uses_push_notifications'] %}
                 <td>
                     <p id="{{ patient['_id'] }}_datepicker">
 
@@ -94,6 +97,7 @@
                         <i>unknown</i>
                     {% endif %}
                 </td>
+              {% endif %}
                 <td>
                   {% if 'os_type' in patient and patient['os_type'] != None %}
                     {{ patient['os_type'] }}
