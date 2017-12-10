@@ -13,3 +13,6 @@ private/*
 *.pyc
 *~
 *.pem
+
+# Files containing aws credentials
+pipeline/aws-config.json
