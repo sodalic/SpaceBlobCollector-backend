@@ -63,6 +63,7 @@ def view_study_data_pipeline(study_id=None):
     return render_template(
         'data-pipeline.html',
         study=study,
+        allowed_studies=get_admins_allowed_studies(),
     )
 
 
