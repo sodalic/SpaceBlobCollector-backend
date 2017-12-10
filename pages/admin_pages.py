@@ -55,6 +55,17 @@ def view_study(study_id=None):
     )
 
 
+@admin_pages.route('/data-pipeline/<string:study_id>', methods=['GET'])
+@authenticate_admin_study_access
+def view_study_data_pipeline(study_id=None):
+    study = Study.objects.get(pk=study_id)
+
+    return render_template(
+        'data-pipeline.html',
+        study=study,
+    )
+
+
 """########################## Login/Logoff ##################################"""
 
 
