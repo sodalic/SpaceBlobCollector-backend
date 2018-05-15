@@ -1,22 +1,21 @@
 import gc
 from collections import defaultdict, deque
+from datetime import datetime
 from multiprocessing.pool import ThreadPool
 from traceback import format_exc
 
 from boto.exception import S3ResponseError
-from cronutils.error_handler import ErrorHandler
-from datetime import datetime
+from cronutils.error_handler import ErrorHandler, null_error_handler
 
 # noinspection PyUnresolvedReferences
 from config import load_django
-from config.constants import (ANDROID_LOG_FILE, UPLOAD_FILE_TYPE_MAPPING, API_TIME_FORMAT,
-    IDENTIFIERS,
+from config.constants import (ANDROID_LOG_FILE, UPLOAD_FILE_TYPE_MAPPING, API_TIME_FORMAT, IDENTIFIERS,
     WIFI, CALL_LOG, CHUNK_TIMESLICE_QUANTUM, FILE_PROCESS_PAGE_SIZE, SURVEY_TIMINGS, ACCELEROMETER,
     SURVEY_DATA_FILES, CONCURRENT_NETWORK_OPS, CHUNKS_FOLDER, CHUNKABLE_FILES,
     DATA_PROCESSING_NO_ERROR_STRING, IOS_LOG_FILE)
 from database.data_access_models import ChunkRegistry, FileProcessLock, FileToProcess
+from database.study_models import Survey, Study
 from database.user_models import Participant
-from database.study_models import Survey
 from libs.s3 import s3_retrieve, s3_upload
 
 
@@ -35,7 +34,8 @@ def process_file_chunks():
     This is primarily called manually during testing and debugging.
     """
     # Initialize the process and ensure there is no other process running at the same time
-    error_handler = ErrorHandler()
+    # error_handler = ErrorHandler()
+    error_handler = null_error_handler()
     if FileProcessLock.islocked():
         raise ProcessingOverlapError("Data processing overlapped with a previous data indexing run.")
     FileProcessLock.lock()
@@ -102,7 +102,7 @@ def do_process_user_file_chunks(count, error_handler, skip_count, participant):
     # The ThreadPool enables downloading multiple files simultaneously from the network, and continuing
     # to download files as other files are being processed, making the code as a whole run faster.
     pool = ThreadPool(CONCURRENT_NETWORK_OPS)
-    survey_id_dict = {}
+    # survey_id_dict = {}
 
     # A Django query with a slice (e.g. .all()[x:y]) makes a LIMIT query, so it
     # only gets from the database those FTPs that are in the slice.
@@ -128,11 +128,11 @@ def do_process_user_file_chunks(count, error_handler, skip_count, participant):
 
             if data['chunkable']:
                 # print "1a"
-                newly_binified_data, survey_id_hash = process_csv_data(data)
+                newly_binified_data = process_csv_data(data)
                 # print data, "\n1b"
-                if data['data_type'] in SURVEY_DATA_FILES:
-                    # print survey_id_hash
-                    survey_id_dict[survey_id_hash] = resolve_survey_id_from_file_name(data['ftp']["s3_file_path"])
+                # if data['data_type'] in SURVEY_DATA_FILES:
+                #     # print survey_id_hash
+                #     survey_id_dict[survey_id_hash] = resolve_survey_id_from_file_name(data['ftp']["s3_file_path"])
 
                 if newly_binified_data:
                     # print "1c"
@@ -161,7 +161,8 @@ def do_process_user_file_chunks(count, error_handler, skip_count, participant):
     pool.close()
     pool.terminate()
     # print 3
-    more_ftps_to_remove, number_bad_files = upload_binified_data(all_binified_data, error_handler, survey_id_dict)
+    # more_ftps_to_remove, number_bad_files = upload_binified_data(all_binified_data, error_handler, survey_id_dict)
+    more_ftps_to_remove, number_bad_files = upload_binified_data(all_binified_data, error_handler)
     # print "X"
     ftps_to_remove.update(more_ftps_to_remove)
     # Actually delete the processed FTPs from the database
@@ -173,7 +174,7 @@ def do_process_user_file_chunks(count, error_handler, skip_count, participant):
     return number_bad_files
 
 
-def upload_binified_data(binified_data, error_handler, survey_id_dict):
+def upload_binified_data(binified_data, error_handler):
     """ Takes in binified csv data and handles uploading/downloading+updating
         older data to/from S3 for each chunk.
         Returns a set of concatenations that have succeeded and can be removed.
@@ -182,26 +183,44 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
     failed_ftps = set([])
     ftps_to_retire = set([])
     upload_these = []
-    for data_bin, (data_rows_deque, ftp_deque) in binified_data.iteritems():
+    for (study_id, user_id, data_type, time_bin, original_header, survey_id), (data_rows_deque, ftp_deque) in binified_data.iteritems():
         # print 3
         with error_handler:
             try:
                 # print 4
-                study_id, user_id, data_type, time_bin, original_header = data_bin
+                from pprint import pprint
+                pprint((study_id, user_id, data_type, time_bin, original_header, survey_id))
+                print
                 # print 5
                 # data_rows_deque may be a generator; here it is evaluated
                 rows = list(data_rows_deque)
                 updated_header = convert_unix_to_human_readable_timestamps(original_header, rows)
                 # print 6
-                chunk_path = construct_s3_chunk_path(study_id, user_id, data_type, time_bin)
+                chunk_path = construct_s3_chunk_path(study_id, user_id, data_type, time_bin, survey_id)
                 # print 7
-                old_chunk_exists = ChunkRegistry.objects.filter(chunk_path=chunk_path).exists()
-                if old_chunk_exists:
-                    chunk = ChunkRegistry.objects.get(chunk_path=chunk_path)
+                
+                # May 11 2018: in fixing the survey timeings getting dumped into one file when they
+                # should be spread across 2 we need to safely handle the situation where we need
+                # to merge and update existing data.
+                if survey_id:
+                    chunk_query = ChunkRegistry.objects.filter(
+                            survey__object_id=survey_id,
+                            data_type=data_type,
+                            participant__patient_id=user_id,
+                            time_bin=datetime.fromtimestamp(time_bin*CHUNK_TIMESLICE_QUANTUM),
+                    )
+                else:
+                    chunk_query = ChunkRegistry.objects.filter(chunk_path=chunk_path)
+                    
+                if chunk_query.exists():
+                    chunk = chunk_query.get()
                     try:
                         # print 8
                         # print chunk_path
-                        s3_file_data = s3_retrieve(chunk_path, study_id, raw_path=True)
+                        # May 11 2018: This chunk.chunk_path is important, when merging with existing
+                        # data we need to pull the file that is sourced from the chunk registry,
+                        # which we did not query by.
+                        s3_file_data = s3_retrieve(chunk.chunk_path, study_id, raw_path=True)
                         # print "finished s3 retrieve"
                     except S3ResponseError as e:
                         # print 9
@@ -257,15 +276,15 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                         # print "7bc"
                         new_contents = construct_csv_string(updated_header, rows)
                     # print "7c"
-                    if data_type in SURVEY_DATA_FILES:
-                        # We need to keep a mapping of files to survey ids, that is handled here.
-                        # print "7da"
-                        survey_id_hash = study_id, user_id, data_type, original_header
-                        survey_id = survey_id_dict[survey_id_hash]
-                        # print survey_id_hash
-                    else:
-                        # print "7db"
-                        survey_id = None
+                    # if data_type in SURVEY_DATA_FILES:
+                    #     # We need to keep a mapping of files to survey ids, that is handled here.
+                    #     # print "7da"
+                    #     survey_id_hash = study_id, user_id, data_type, original_header
+                    #     # survey_id = survey_id_dict[survey_id_hash]
+                    #     # print survey_id_hash
+                    # else:
+                    #     # print "7db"
+                    #     # survey_id = None
                     # print "7e"
                     chunk_params = {
                         "study_id": study_id,
@@ -307,12 +326,18 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
 """################################ S3 Stuff ################################"""
 
 
-def construct_s3_chunk_path(study_id, user_id, data_type, time_bin):
+def construct_s3_chunk_path(study_id, user_id, data_type, time_bin, survey_id):
     """ S3 file paths for chunks are of this form:
         CHUNKED_DATA/study_id/user_id/data_type/time_bin.csv """
-    return "%s/%s/%s/%s/%s.csv" % (CHUNKS_FOLDER, study_id, user_id, data_type,
-        unix_time_to_string(time_bin*CHUNK_TIMESLICE_QUANTUM) )
-
+    
+    if survey_id:
+        return "%s/%s/%s/%s/%s/%s.csv" % (CHUNKS_FOLDER, study_id, user_id, data_type, survey_id,
+                                          unix_time_to_string(time_bin * CHUNK_TIMESLICE_QUANTUM))
+    else:
+        return "%s/%s/%s/%s/%s.csv" % (CHUNKS_FOLDER, study_id, user_id, data_type,
+            unix_time_to_string(time_bin*CHUNK_TIMESLICE_QUANTUM) )
+        
+        
 """################################# Key ####################################"""
 
 
@@ -371,7 +396,7 @@ def resolve_survey_id_from_file_name(name):
 """############################## Standard CSVs #############################"""
 
 
-def binify_csv_rows(rows_list, study_id, user_id, data_type, header):
+def binify_csv_rows(rows_list, study_id, user_id, data_type, header, survey_id):
     """ Assumes a clean csv with element 0 in the rows column as a unix(ish) timestamp.
         Sorts data points into the appropriate bin based on the rounded down hour
         value of the entry's unix(ish) timestamp. (based CHUNK_TIMESLICE_QUANTUM)
@@ -381,8 +406,18 @@ def binify_csv_rows(rows_list, study_id, user_id, data_type, header):
         # discovered August 7 2017, looks like there was an empty line at the end
         # of a file? row was a [''].
         if row and row[0]:
-            ret[(study_id, user_id, data_type,
-                 binify_from_timecode(row[0]), header)].append(row)
+            ret[
+                # This is the tuple of all the data we could possibly need, survey_id is None
+                # except in survey timings and survey answers.
+                # (
+                    study_id,
+                    user_id,
+                    data_type,
+                    binify_from_timecode(row[0]),
+                    header,
+                    survey_id
+                # ),
+            ].append(row)
     return ret
 
 
@@ -432,22 +467,30 @@ def process_csv_data(data):
     if data["data_type"] == SURVEY_TIMINGS:
         header = fix_survey_timings(header, csv_rows_list, data['ftp']['s3_file_path'])
 
+    if data['data_type'] == SURVEY_TIMINGS:
+        survey_id = resolve_survey_id_from_file_name(data['ftp']['s3_file_path'])
+    else:
+        survey_id = None
+        
     header = ",".join([column_name.strip() for column_name in header.split(",")])
     if csv_rows_list:
-        return (
-            # return item 1: the data as a defaultdict
-            binify_csv_rows(
+        # return item 1: the data as a defaultdict
+        return binify_csv_rows(
                 csv_rows_list,
                 data['ftp']['study'].object_id,
                 data['ftp']['participant'].patient_id,
                 data["data_type"],
-                header
-            ),
-            # return item 2: the tuple that we use as a key for the defaultdict
-            (data['ftp']['study'].object_id, data['ftp']['participant'].patient_id, data["data_type"], header)
+                header,
+                survey_id
         )
+        # ,
+        # # return item 2: the tuple that we use as a key for the defaultdict
+        # (data['ftp']['study'].object_id, data['ftp']['participant'].patient_id, data["data_type"],
+            #  header)
+        # )
     else:
-        return None, None
+        return None
+    #     return None, None
 
 
 """############################ CSV Fixes #####################################"""
