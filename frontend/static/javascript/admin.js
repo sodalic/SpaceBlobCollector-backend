@@ -1,7 +1,8 @@
 $(document).ready(function(){
     // Set up the main list of patients using DataTables
     $("#patients_list").DataTable();
-
+    $("#dashboard-table").DataTable();
+    
     $('#many-new-patients-loading-spinner').hide();
 
     $('#createManyPatientsForm').on('submit', function(e){

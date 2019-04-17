@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{#{% block head %}#}
+{#    {{ super() }}#}
+{#    <script>participantsObjects = {{ participants|safe }}</script>#}
+{#    <script src="/static/javascript/app/survey-builder/controllers/filterable-list-controller.js"></script>#}
+{#{% endblock %}#}
+
+{% block title %}View Study{% endblock %}
+
+{% block content %}
+    {# TODO: Add critical alerts here #}
+{#    {% if critical_alerts %}#}
+{#    {% endif %}#}
+    <form action="/view_study/1/dashboard/" method="post">
+        <input type="date" name="end-date" placeholder="2017-02-16">
+        <input type="submit" >
+    </form>
+    <p>{{ end_date }}</p>
+    {% if participants_data %}
+        <h2>Study Dashboard</h2>
+        <table class="table table-hover table-bordered table-responsive" id="dashboard-table">
+            <thead>
+                <tr>
+                    <th>Participant ID</th>
+                    {% for day, data in seven_days.items() %}
+                        <th>{{ day }}</th>
+                    {% endfor %}
+{#                    <th>Monday</th>#}
+{#                    <th>Tuesday</th>#}
+{#                    <th>Wednesday</th>#}
+{#                    <th>Thursday</th>#}
+{#                    <th>Friday</th>#}
+{#                    <th>Saturday</th>#}
+{#                    <th>Sunday</th>#}
+                </tr>
+            </thead>
+            <tbody>
+                {% for p_id, p_data in participants_data.items() %}
+                <tr>
+                    <td>{{ p_id }}</td>
+                    {% for d, d_data in p_data.items() %}
+                    <td>
+                        <table class="table table-bordered table-responsive" style="margin-bottom:0px;">
+                            <tbody>
+                                <tr>
+                                    <td title="GPS">{{ d_data["gps"]|length }}</td>
+                                    <td title="Accelerometer">{{ d_data["accelerometer"]|length }}</td>
+                                    <td title="Power State">{{ d_data["power_state"]|length }}</td>
+                                </tr>
+                                <tr>
+                                     {#style="width:33%; height:33%; background-color:red;"#}
+                                    <td title="Texts">{{ d_data["texts"]|length }}</td>
+                                    <td title="Calls">{{ d_data["calls"]|length }}</td>
+                                    <td></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {%  endif %}
+{% endblock %}

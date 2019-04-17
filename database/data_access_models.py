@@ -34,6 +34,9 @@ class ChunkRegistry(AbstractModel):
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True)
     survey = models.ForeignKey('Survey', blank=True, null=True, on_delete=models.PROTECT, related_name='chunk_registries', db_index=True)
     
+    # TODO: Need to populate existing objects in the database with their accurate chunk_size values
+    #chunk_size = models.IntegerField(default=0)
+    
     @classmethod
     def register_chunked_data(cls, data_type, time_bin, chunk_path, file_contents, study_id, participant_id, survey_id=None):
         

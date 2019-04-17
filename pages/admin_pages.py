@@ -11,6 +11,13 @@ from libs.security import check_password_requirements
 
 from database.study_models import Study, StudyField
 from database.user_models import Researcher, Participant, ParticipantFieldValue
+from database.data_access_models import ChunkRegistry
+
+from collections import OrderedDict
+from datetime import datetime, timedelta
+import pytz
+
+from config.constants import GPS, ACCELEROMETER, POWER_STATE, CALL_LOG, TEXTS_LOG
 
 admin_pages = Blueprint('admin_pages', __name__)
 
@@ -59,6 +66,94 @@ def view_study(study_id=None):
         allowed_studies=get_admins_allowed_studies(),
         system_admin=admin_is_system_admin(),
         study_fields=study_fields,
+    )
+
+
+@admin_pages.route('/view_study/<string:study_id>/dashboard/', methods=['GET', 'POST'])
+@authenticate_admin_study_access
+def view_dashboard(study_id=None):
+    def _extract_data(obj):
+        return {"time_bin": str(obj.time_bin.date()), "participant": obj.participant.patient_id}#, "size": obj.chunk_size}
+
+    data_types = [GPS, ACCELEROMETER, POWER_STATE, CALL_LOG, TEXTS_LOG]
+
+    gps_files = []
+    acce_files = []
+    pstate_files = []
+    call_files = []
+    text_files = []
+    study = Study.objects.get(pk=study_id)
+    participants = [p.patient_id for p in study.participants.all()]
+
+    end_date = datetime.strptime("2017-02-22 19:00:00", "%Y-%m-%d %H:%M:%S")
+    # if request.method == 'GET':
+    #     end_date = datetime.now()  # pytz.utc
+    # elif request.method == 'POST':
+    #     # Get the form info here and create a datetime object
+    #     date_str = request.form.get("end-date")
+    #     date_str += " 00:00:00.0000"
+    #     end_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S.%f")
+    start_date = end_date - timedelta(days=6)
+    # import pdb
+    # pdb.set_trace()
+    print("start date: " + str(start_date))
+    print("end date: " + str(end_date))
+    files = ChunkRegistry.get_chunks_time_range(study.id, participants, data_types, start_date, end_date)
+    for f in files:
+        if f.data_type == GPS:
+            gps_files.append(_extract_data(f))
+        elif f.data_type == ACCELEROMETER:
+            acce_files.append(_extract_data(f))
+        elif f.data_type == POWER_STATE:
+            pstate_files.append(_extract_data(f))
+        elif f.data_type == CALL_LOG:
+            call_files.append(_extract_data(f))
+        elif f.data_type == TEXTS_LOG:
+            text_files.append(_extract_data(f))
+
+    seven_days = OrderedDict()
+    seven_days[str(start_date.date())] = {}
+    seven_days[str((start_date + timedelta(days=1)).date())] = {}
+    seven_days[str((start_date + timedelta(days=2)).date())] = {}
+    seven_days[str((start_date + timedelta(days=3)).date())] = {}
+    seven_days[str((start_date + timedelta(days=4)).date())] = {}
+    seven_days[str((start_date + timedelta(days=5)).date())] = {}
+    seven_days[str(end_date.date())] = {}
+    # seven_days = {
+    #     str(start_date.date()): {},
+    #     str((start_date + timedelta(days=1)).date()): {},
+    #     str((start_date + timedelta(days=2)).date()): {},
+    #     str((start_date + timedelta(days=3)).date()): {},
+    #     str((start_date + timedelta(days=4)).date()): {},
+    #     str((start_date + timedelta(days=5)).date()): {},
+    #     str(end_date.date()): {},
+    # }
+
+    participants_data = {p: OrderedDict(seven_days) for p in participants}
+    for p_id, p_data in participants_data.items():
+        for d, d_data in p_data.items():
+            for f in gps_files:
+                if f.get("participant") == p_id and d == f.get("time_bin"):
+                    if GPS in d_data:
+                        d_data[GPS].append(f)
+                    else:
+                        d_data[GPS] = [f]
+    # import pdb
+    # pdb.set_trace()
+    # for p in participants:
+    #     participants_data[p][GPS] = [d for d in gps_files if d.get("participant") == p]
+    #     participants_data[p][ACCELEROMETER] = [d for d in acce_files if d.get("participant") == p]
+    #     participants_data[p][POWER_STATE] = [d for d in pstate_files if d.get("participant") == p]
+    #     participants_data[p][CALL_LOG] = [d for d in call_files if d.get("participant") == p]
+    #     participants_data[p][TEXTS_LOG] = [d for d in text_files if d.get("participant") == p]
+
+    return render_template(
+        'dashboard.html',
+        participants_data=participants_data,
+        study_id=study_id,
+        system_admin=admin_is_system_admin(),
+        allowed_studies=get_admins_allowed_studies(),
+        seven_days=seven_days,
     )
 
 
