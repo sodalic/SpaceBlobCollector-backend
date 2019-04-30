@@ -6,6 +6,7 @@ from datetime import datetime
 
 from django.db import models
 from django.utils import timezone
+from django.contrib.postgres.fields import JSONField
 
 from config.constants import ALL_DATA_STREAMS, CHUNKABLE_FILES, CHUNK_TIMESLICE_QUANTUM, PIPELINE_FOLDER
 from database.validators import LengthValidator
@@ -13,10 +14,37 @@ from libs.security import chunk_hash, low_memory_chunk_hash
 from database.models import AbstractModel
 from database.study_models import Study
 
+import pytz
 
 class FileProcessingLockedError(Exception): pass
 class UnchunkableDataTypeError(Exception): pass
 class ChunkableDataTypeError(Exception): pass
+class PipelineRegistryDataTypeError(Exception): pass
+
+
+class PipelineRegistry(AbstractModel):
+    DATA_TYPE_CHOICES = tuple([(stream_name, stream_name) for stream_name in ALL_DATA_STREAMS])
+
+    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True)
+    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True)
+
+    data_type = models.CharField(max_length=32, choices=DATA_TYPE_CHOICES, db_index=True)
+    processed_data = JSONField(null=True, blank=True)
+
+    uploaded_at = models.DateTimeField(db_index=True)
+
+    @classmethod
+    def register_pipeline_data(cls, study_id, participant_id, data, data_type):
+        if data_type not in CHUNKABLE_FILES:
+            raise PipelineRegistryDataTypeError
+
+        cls.objects.create(
+            study_id=study_id,
+            participant_id=participant_id,
+            processed_data=data,
+            data_type=data_type,
+            uploaded_at=datetime.now(pytz.utc)
+        )
 
 
 class ChunkRegistry(AbstractModel):

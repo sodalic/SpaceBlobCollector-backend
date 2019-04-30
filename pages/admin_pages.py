@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 import pytz
 import itertools
 
-from config.constants import GPS, ACCELEROMETER, POWER_STATE, CALL_LOG, TEXTS_LOG
+from config.constants import GPS, ACCELEROMETER, POWER_STATE, CALL_LOG, TEXTS_LOG, ALL_DATA_STREAMS
 
 admin_pages = Blueprint('admin_pages', __name__)
 
@@ -73,13 +73,9 @@ def view_study(study_id=None):
 @admin_pages.route('/view_study/<string:study_id>/dashboard/', methods=['GET', 'POST'])
 @authenticate_admin_study_access
 def view_dashboard(study_id=None):
-    data_types = [GPS, ACCELEROMETER, POWER_STATE, CALL_LOG, TEXTS_LOG]
-
     study = Study.objects.get(pk=study_id)
     participants = [p.patient_id for p in study.participants.all()]
 
-    # end_date = datetime.strptime("2017-02-22 19:00:00", "%Y-%m-%d %H:%M:%S")
-    # end_date.replace(tzinfo=pytz.utc)
     if request.method == 'GET':
         end_date = datetime.now()
     elif request.method == 'POST':
@@ -90,7 +86,7 @@ def view_dashboard(study_id=None):
     start_date = end_date - timedelta(days=6)
     print("start date: " + str(start_date))
     print("end date: " + str(end_date))
-
+    data_types = [GPS, ACCELEROMETER, POWER_STATE, CALL_LOG, TEXTS_LOG]
     files = ChunkRegistry.get_chunks_time_range(study.id, participants, data_types, start_date, end_date)
     seven_days = list()
     participants_data = []
@@ -133,8 +129,6 @@ def view_dashboard(study_id=None):
                                 ])
         participants_data.append(obj)
 
-    # import pdb
-    # pdb.set_trace()
     return render_template(
         'dashboard.html',
         participants_data=participants_data,

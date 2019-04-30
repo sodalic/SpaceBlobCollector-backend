@@ -16,7 +16,7 @@ from database.user_models import Participant, Researcher
 from libs.s3 import s3_retrieve, s3_upload
 from libs.streaming_bytes_io import StreamingBytesIO
 
-from database.data_access_models import PipelineUpload, InvalidUploadParameterError, PipelineUploadTags
+from database.data_access_models import PipelineUpload, InvalidUploadParameterError, PipelineUploadTags, PipelineRegistry
 
 # Data Notes
 # The call log has the timestamp column as the 3rd column instead of the first.
@@ -424,10 +424,10 @@ def data_pipeline_upload():
     access_secret = request.values["secret_key"]
 
     if not Researcher.objects.filter(access_key_id=access_key).exists():
-        return abort(403) # access key DNE
+        return abort(403)  # access key DNE
     researcher = Researcher.objects.get(access_key_id=access_key)
     if not researcher.validate_access_credentials(access_secret):
-        return abort( 403 )  # incorrect secret key
+        return abort(403)  # incorrect secret key
     # case: invalid study
     study_id = request.values["study_id"]
 
@@ -467,6 +467,38 @@ def data_pipeline_upload():
         pipeline_upload_tag = PipelineUploadTags(pipeline_upload=pipeline_upload, tag=tag)
         pipeline_upload_tag.save()
 
+    return Response("SUCCESS", status=200)
+
+
+@data_access_api.route("/pipeline-json-upload/v1", methods=['POST'])
+def json_pipeline_upload():
+    access_key = request.values["access_key"]
+    access_secret = request.values["secret_key"]
+
+    if not Researcher.objects.filter(access_key_id=access_key).exists():
+        return abort(403)  # access key DNE
+    researcher = Researcher.objects.get(access_key_id=access_key)
+    if not researcher.validate_access_credentials(access_secret):
+        return abort(403)  # incorrect secret key
+    # case: invalid study
+    study_id = request.values["study_id"]
+
+    if not Study.objects.filter(object_id=study_id).exists():
+        return abort(404)
+
+    study_obj = Study.objects.get(object_id=study_id)
+
+    # case: study not authorized for user
+    if not study_obj.get_researchers().filter(id=researcher.id).exists():
+        return abort(403)
+
+    json_data = request.values["summary_output"]
+    summary_type = request.values["summary_type"]
+    participant_id = 11  # TODO(Ali): need to figure out a way to get the patient_id
+    PipelineRegistry.register_pipeline_data(study_id, participant_id, json_data, summary_type)
+    
+    # Debugging
+    # print request.data
     return Response("SUCCESS", status=200)
 
 

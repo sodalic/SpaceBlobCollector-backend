@@ -3,11 +3,11 @@
 {% block title %}View Study{% endblock %}
 
 {% block content %}
-    {# TODO: Add critical alerts here #}
-{#    {% if critical_alerts %}#}
+{# TODO: Add critical alerts here #}
+{#    {% if critical_alerts %}    #}
 {#    {% endif %}#}
     <form action="/view_study/1/dashboard/" method="post">
-        <input type="date" name="end-date" placeholder="2017-02-16">
+        End date: <input type="date" name="end-date" placeholder="2017-02-16">
         <input type="submit" >
     </form>
     <p>{{ end_date }}</p>
@@ -37,8 +37,6 @@
                                                     <td>{{ count }}</td>
                                                 {% endfor %}
                                             </tr>
-
-
                                         </tbody>
                                     </table>
                                 </td>
