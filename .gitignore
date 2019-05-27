@@ -4,6 +4,7 @@
 .project
 .idea/
 .python-version
+venv/
 
 # A place to stick your files
 private/*
