@@ -2,6 +2,7 @@ from flask import request
 from flask.blueprints import Blueprint
 from flask.templating import render_template
 from libs.user_authentication import authenticate_user
+from libs.user_authentication import authenticate_user_ignore_password
 from libs.graph_data import get_survey_results
 from database.user_models import Participant
 
@@ -9,7 +10,9 @@ mobile_pages = Blueprint('mobile_pages', __name__)
 
 
 @mobile_pages.route('/graph', methods=['GET', 'POST'])
-@authenticate_user
+# TODO SG: fix me! Now client-side authentication is totally broken!
+# @authenticate_user
+@authenticate_user_ignore_password
 def fetch_graph():
     """ Fetches the patient's answers to the most recent survey, marked by survey ID. The results
     are dumped into a jinja template and pushed to the device. """

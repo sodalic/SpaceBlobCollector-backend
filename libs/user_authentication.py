@@ -12,11 +12,11 @@ from database.user_models import Participant
 def authenticate_user_ignore_password(some_function):
     @functools.wraps(some_function)
     def authenticate_and_call(*args, **kwargs):
-        is_ios = kwargs["OS_API"] == Participant.IOS_API
+        is_ios = "OS_API" in kwargs and kwargs["OS_API"] == Participant.IOS_API
         correct_for_basic_auth()
         if validate_post_ignore_password(is_ios):
             return some_function(*args, **kwargs)
-        return abort(401 if (kwargs["OS_API"] == Participant.IOS_API) else 403)
+        return abort(401 if ("OS_API" in kwargs and kwargs["OS_API"] == Participant.IOS_API) else 403)
     return authenticate_and_call
 
 
@@ -25,6 +25,7 @@ def validate_post_ignore_password(is_ios):
     device id matches.
     IOS apparently has problems retaining the device id, so we wantt to bypass it when it is an ios user
     """
+    # print "user info:  ", request.values.items()
     if ("patient_id" not in request.values
         or "password" not in request.values
         or "device_id" not in request.values):
@@ -43,7 +44,7 @@ def validate_post_ignore_password(is_ios):
         return False
     return True
 
-####################################################################################################
+###########################################get#########################################################
 
 
 def authenticate_user(some_function):
@@ -59,7 +60,7 @@ def authenticate_user(some_function):
         correct_for_basic_auth()
         if validate_post():
             return some_function(*args, **kwargs)
-        return abort(401 if (kwargs["OS_API"] == Participant.IOS_API) else 403)
+        return abort(401 if ("OS_API" in kwargs and kwargs["OS_API"] == Participant.IOS_API) else 403)
     return authenticate_and_call
 
 
@@ -95,7 +96,7 @@ def authenticate_user_registration(some_function):
         correct_for_basic_auth()
         if validate_registration():
             return some_function(*args, **kwargs)
-        return abort(401 if (kwargs["OS_API"] == Participant.IOS_API) else 403)
+        return abort(401 if ("OS_API" in kwargs and kwargs["OS_API"] == Participant.IOS_API) else 403)
     return authenticate_and_call
 
 
