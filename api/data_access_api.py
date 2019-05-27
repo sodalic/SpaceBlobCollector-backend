@@ -171,10 +171,16 @@ def get_data():
     # and don't want to create a registry file.
     # Oddly, it is the presence of  mimetype=zip that causes the streaming response to actually stream.
     if 'web_form' in request.values:
+        zip_file_name = "data_study_{0}.zip".format(study.object_id)
+        if 'user_ids' in request.values:
+            user_ids = request.form.getlist('user_ids')
+            if len(user_ids) == 1:
+                zip_file_name = "data_participant_{0}.zip".format(user_ids[0])
+
         return Response(
             zip_generator(get_these_files, construct_registry=False),
             mimetype="zip",
-            headers={'Content-Disposition': 'attachment; filename="data.zip"'}
+            headers={'Content-Disposition': 'attachment; filename="{0}"'.format(zip_file_name)}
         )
     else:
         return Response(
