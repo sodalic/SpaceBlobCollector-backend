@@ -8,6 +8,7 @@ from libs.s3 import s3_upload, create_client_key_pair
 from libs.streaming_bytes_io import StreamingBytesIO
 from database.study_models import Study
 from database.user_models import Participant
+from business_logic.participant_bl import ParticipantBL
 
 participant_administration = Blueprint('participant_administration', __name__)
 
@@ -60,12 +61,8 @@ def create_new_patient():
     """
 
     study_id = request.values['study_id']
-    patient_id, password = Participant.create_with_password(study_id=study_id)
 
-    # Create an empty file on S3 indicating that this user exists
-    study_object_id = Study.objects.filter(pk=study_id).values_list('object_id', flat=True).get()
-    s3_upload(patient_id, "", study_object_id)
-    create_client_key_pair(patient_id, study_object_id)
+    patient_id, password = ParticipantBL.create_with_rnd_password(study_id=study_id)
 
     response_string = 'Created a new patient\npatient_id: {:s}\npassword: {:s}'.format(patient_id, password)
     flash(response_string, 'success')
@@ -97,7 +94,7 @@ def csv_generator(study_id, number_of_new_patients):
     filewriter.writerow(['Patient ID', "Registration password"])
     study_object_id = Study.objects.filter(pk=study_id).values_list('object_id', flat=True).get()
     for _ in xrange(number_of_new_patients):
-        patient_id, password = Participant.create_with_password(study_id=study_id)
+        patient_id, password = Participant.create_with_rnd_password(study_id=study_id)
         # Creates an empty file on s3 indicating that this user exists
         s3_upload(patient_id, "", study_object_id)
         create_client_key_pair(patient_id, study_object_id)

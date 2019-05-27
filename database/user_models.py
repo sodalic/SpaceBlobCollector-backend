@@ -85,9 +85,9 @@ class Participant(AbstractPasswordUser):
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='participants', null=False)
 
     @classmethod
-    def create_with_password(cls, **kwargs):
+    def _create_empty_ex(cls, generate_password, force_save=False, **kwargs):
         """
-        Creates a new participant with randomly generated patient_id and password.
+        Creates an empty new participant with randomly generated patient_id.
         """
 
         # Ensure that a unique patient_id is generated. If it is not after
@@ -103,9 +103,27 @@ class Participant(AbstractPasswordUser):
 
         # Create a Participant, and generate for them a password
         participant = cls(patient_id=patient_id, **kwargs)
-        password = participant.reset_password()  # this saves participant
+        password = None
+        if generate_password:
+            password = participant.reset_password()  # this saves participant
+        elif force_save:
+            participant.save()
 
-        return patient_id, password
+        return participant, password
+
+    @classmethod
+    def create_empty(cls, force_save=False, **kwargs):
+        # here password should be None
+        participant, password = cls._create_empty_ex(generate_password=False, force_save=force_save, **kwargs)
+        return participant
+
+    @classmethod
+    def create_with_rnd_password(cls, **kwargs):
+        """
+        Creates a new participant with randomly generated patient_id and password.
+        """
+        participant, password = cls._create_empty_ex(generate_password=True, **kwargs)
+        return participant.patient_id, password
 
     def generate_hash_and_salt(self, password):
         return generate_user_hash_and_salt(password)

@@ -1,12 +1,9 @@
-import calendar
-import time
-
 from django.utils import timezone
 from flask import Blueprint, request, abort, render_template, json
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import BadRequestKeyError
 
-from config.constants import ALLOWED_EXTENSIONS, DEVICE_IDENTIFIERS_HEADER
+from config.constants import ALLOWED_EXTENSIONS
 from database.data_access_models import FileToProcess
 from database.profiling_models import UploadTracking, DecryptionKeyError
 from database.user_models import Participant
@@ -18,6 +15,8 @@ from libs.s3 import s3_upload, get_client_public_key_string, get_client_private_
 from libs.sentry import make_sentry_client
 from libs.user_authentication import (authenticate_user, authenticate_user_registration,
     authenticate_user_ignore_password)
+
+from business_logic.participant_bl import DeviceInfo, ParticipantBL
 
 ################################################################################
 ############################# GLOBALS... #######################################
@@ -161,20 +160,7 @@ def upload(OS_API=""):
 ############################## Registration ####################################
 ################################################################################
 
-@mobile_api.route('/register_user', methods=['GET', 'POST'])
-@mobile_api.route('/register_user/ios/', methods=['GET', 'POST'])
-@determine_os_api
-@authenticate_user_registration
-def register_user(OS_API=""):
-    """ Checks that the patient id has been granted, and that there is no device registered with
-    that id.  If the patient id has no device registered it registers this device and logs the
-    bluetooth mac address.
-    Check the documentation in user_authentication to ensure you have provided the proper credentials.
-    Returns the encryption key for this patient/user. """
-
-    #CASE: If the id and password combination do not match, the decorator returns a 403 error.
-    #the following parameter values are required.
-    patient_id = request.values['patient_id']
+def _parse_device_info():
     phone_number = request.values['phone_number']
     device_id = request.values['device_id']
 
@@ -193,14 +179,63 @@ def register_user(OS_API=""):
     except BadRequestKeyError: manufacturer = "none"
     try: model = request.values["model"]
     except BadRequestKeyError: model = "none"
-    try: beiwe_version = request.values["beiwe_version"]
-    except BadRequestKeyError: beiwe_version = "none"
+    try: app_version = request.values["app_version"]
+    except BadRequestKeyError: app_version = "none"
     # This value may not be returned by later versions of the beiwe app.
-    try: mac_address = request.values['bluetooth_id']
-    except BadRequestKeyError: mac_address = "none"
+    try: bluetooth_mac_address = request.values['bluetooth_id']
+    except BadRequestKeyError: bluetooth_mac_address = "none"
+
+    return DeviceInfo(
+        bluetooth_mac_address=bluetooth_mac_address,
+        phone_number=phone_number,
+        device_id=device_id,
+        device_os=device_os,
+        os_version=os_version,
+        product=product,
+        brand=brand,
+        hardware_id=hardware_id,
+        manufacturer=manufacturer,
+        model=model,
+        app_version=app_version)
+
+
+@mobile_api.route('/register_user_full', methods=['POST'])
+@mobile_api.route('/register_user_full/ios/', methods=['POST'])
+@determine_os_api
+def register_user_full(OS_API=""):
+    device_info = _parse_device_info()
+    study_object_id = request.values['studyId']
+    password = request.values['password']
+    userName = request.values['userName']
+    participant = ParticipantBL.create_full(study_object_id, userName, password, OS_API, device_info)
+    patient_id = participant.patient_id
+
+    device_settings = participant.study.device_settings.as_native_python()
+    device_settings.pop('_id', None)
+    return_obj = {'patient_id': patient_id,
+                  'client_public_key': get_client_public_key_string(patient_id, study_object_id),
+                  'device_settings': device_settings}
+    return json.dumps(return_obj), 200
+
+
+@mobile_api.route('/register_user', methods=['GET', 'POST'])
+@mobile_api.route('/register_user/ios/', methods=['GET', 'POST'])
+@determine_os_api
+@authenticate_user_registration
+def register_user(OS_API=""):
+    """ Checks that the patient id has been granted, and that there is no device registered with
+    that id.  If the patient id has no device registered it registers this device and logs the
+    bluetooth mac address.
+    Check the documentation in user_authentication to ensure you have provided the proper credentials.
+    Returns the encryption key for this patient/user. """
+
+    #CASE: If the id and password combination do not match, the decorator returns a 403 error.
+    #the following parameter values are required.
+    patient_id = request.values['patient_id']
+
+    device_info = _parse_device_info()
 
     user = Participant.objects.get(patient_id=patient_id)
-    study_id = user.study.object_id
 
     if user.device_id and user.device_id != request.values['device_id']:
         # CASE: this patient has a registered a device already and it does not match this device.
@@ -222,26 +257,12 @@ def register_user(OS_API=""):
     # Any errors after this point will be server errors and return 500 codes. the final return
     # will be the encryption key associated with this user.
     
-    # Upload the user's various identifiers.
-    unix_time = str(calendar.timegm(time.gmtime()))
-    file_name = patient_id + '/identifiers_' + unix_time + ".csv"
-    
-    # Construct a manual csv of the device attributes
-    file_contents = (DEVICE_IDENTIFIERS_HEADER + "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" %
-                     (patient_id, mac_address, phone_number, device_id, device_os,
-                      os_version, product, brand, hardware_id, manufacturer, model,
-                      beiwe_version))
-    # print(file_contents + "\n")
-    s3_upload(file_name, file_contents, study_id)
-    FileToProcess.append_file_for_processing(file_name, user.study.object_id, participant=user)
+    study_object_id = user.study.object_id
+    ParticipantBL.register_created(user, request.values['new_password'], OS_API, device_info)
 
-    # set up device.
-    user.set_device(device_id)
-    user.set_os_type(OS_API)
-    user.set_password(request.values['new_password'])
     device_settings = user.study.device_settings.as_native_python()
     device_settings.pop('_id', None)
-    return_obj = {'client_public_key': get_client_public_key_string(patient_id, study_id),
+    return_obj = {'client_public_key': get_client_public_key_string(patient_id, study_object_id),
                   'device_settings': device_settings}
     return json.dumps(return_obj), 200
 
