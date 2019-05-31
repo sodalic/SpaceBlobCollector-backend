@@ -26,8 +26,9 @@ def validate_post_ignore_password(is_ios):
     IOS apparently has problems retaining the device id, so we wantt to bypass it when it is an ios user
     """
     # print "user info:  ", request.values.items()
+    # print "file info:  ", request.files.items()
     if ("patient_id" not in request.values
-        or "password" not in request.values
+        or "password_hash" not in request.values
         or "device_id" not in request.values):
         return False
 
@@ -36,7 +37,7 @@ def validate_post_ignore_password(is_ios):
         return False
     participant = participant_set.get()
     # Disabled
-    # if not participant.validate_password(request.values['password']):
+    # if not participant.validate_password(request.values['password_hash']):
     #     return False
     # Only execute if it is an android device
     if not is_ios and not participant.device_id == request.values['device_id']:
@@ -69,14 +70,14 @@ def validate_post():
     # print "user info:  ", request.values.items()
     # print "file info:  ", request.files.items()
     if ("patient_id" not in request.values
-            or "password" not in request.values
+            or "password_hash" not in request.values
             or "device_id" not in request.values):
         return False
     participant_set = Participant.objects.filter(patient_id=request.values['patient_id'])
     if not participant_set.exists():
         return False
     participant = participant_set.get()
-    if not participant.validate_password(request.values['password']):
+    if not participant.validate_password(request.values['password_hash']):
         return False
     if not participant.device_id == request.values['device_id']:
         return False
@@ -103,14 +104,14 @@ def authenticate_user_registration(some_function):
 def validate_registration():
     """Check if user exists, check if the provided passwords match"""
     if ("patient_id" not in request.values
-            or "password" not in request.values
+            or "password_hash" not in request.values
             or "device_id" not in request.values):
         return False
     participant_set = Participant.objects.filter(patient_id=request.values['patient_id'])
     if not participant_set.exists():
         return False
     participant = participant_set.get()
-    if not participant.validate_password(request.values['password']):
+    if not participant.validate_password(request.values['password_hash']):
         return False
     return True
 
@@ -149,6 +150,6 @@ def correct_for_basic_auth():
         if "device_id" not in replace_dict:
             replace_dict['device_id'] = username_parts[1]
         if "password" not in replace_dict:
-            replace_dict['password'] = auth.password
+            replace_dict['password_hash'] = auth.password
         request.values = replace_dict
     return
