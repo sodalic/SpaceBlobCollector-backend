@@ -14,7 +14,7 @@ from libs.logging import log_error
 from libs.s3 import s3_upload, get_client_public_key_string, get_client_private_key
 from libs.sentry import make_sentry_client
 from libs.user_authentication import (authenticate_user, authenticate_user_registration,
-    authenticate_user_ignore_password)
+                                      authenticate_user_ignore_password)
 
 from business_logic.participant_bl import DeviceInfo, ParticipantBL
 
@@ -85,7 +85,7 @@ def upload(OS_API=""):
         uploaded_file = request.values['file']
     else:
         uploaded_file = request.data
-    
+
     if isinstance(uploaded_file, FileStorage):
         uploaded_file = uploaded_file.read()
 
@@ -97,7 +97,7 @@ def upload(OS_API=""):
 
     if file_name[:6] == "rList-":
         return render_template('blank.html'), 200
-    
+
     client_private_key = get_client_private_key(patient_id, user.study.object_id)
     try:
         uploaded_file = decrypt_device_file(patient_id, uploaded_file, client_private_key, user)
@@ -108,7 +108,7 @@ def upload(OS_API=""):
         print("the following error was handled:")
         log_error(e, "%s; %s; %s" % (patient_id, file_name, e.message))
         return render_template('blank.html'), 200
-    #This is what the decryption failure mode SHOULD be, but we are still identifying the decryption bug
+    # This is what the decryption failure mode SHOULD be, but we are still identifying the decryption bug
     except DecryptionKeyInvalidError:
         tags = {
             "participant": patient_id,
@@ -117,7 +117,7 @@ def upload(OS_API=""):
             "file_name": file_name,
         }
         make_sentry_client('eb', tags).captureMessage("DecryptionKeyInvalidError")
-        
+
         return render_template('blank.html'), 200
 
     # print "decryption success:", file_name
@@ -133,26 +133,27 @@ def upload(OS_API=""):
         )
         return render_template('blank.html'), 200
     else:
-        error_message ="an upload has failed " + patient_id + ", " + file_name + ", "
+        error_message = "an upload has failed " + patient_id + ", " + file_name + ", "
         if not uploaded_file:
             # it appears that occasionally the app creates some spurious files
             # with a name like "rList-org.beiwe.app.LoadingActivity"
             error_message += "there was no/an empty file, returning 200 OK so device deletes bad file."
             log_error(Exception("upload error"), error_message)
             return render_template('blank.html'), 200
-        
+
         elif not file_name:
             error_message += "there was no provided file name, this is an app error."
-        elif file_name and not contains_valid_extension( file_name ):
+        elif file_name and not contains_valid_extension(file_name):
             error_message += "contains an invalid extension, it was interpretted as "
             error_message += grab_file_extension(file_name)
         else:
             error_message += "AN UNKNOWN ERROR OCCURRED."
 
+        print "upload error ", error_message
         tags = {"upload_error": "upload error", "user_id": patient_id}
         sentry_client = make_sentry_client('eb', tags)
         sentry_client.captureMessage(error_message)
-        
+
         return abort(400)
 
 
@@ -229,8 +230,8 @@ def register_user(OS_API=""):
     Check the documentation in user_authentication to ensure you have provided the proper credentials.
     Returns the encryption key for this patient/user. """
 
-    #CASE: If the id and password combination do not match, the decorator returns a 403 error.
-    #the following parameter values are required.
+    # CASE: If the id and password combination do not match, the decorator returns a 403 error.
+    # the following parameter values are required.
     patient_id = request.values['patient_id']
 
     device_info = _parse_device_info()
@@ -246,17 +247,17 @@ def register_user(OS_API=""):
         # need to enter to at registration is their old password.
         # KG: 405 is good for IOS and Android, no need to check OS_API
         return abort(405)
-    
+
     if user.os_type and user.os_type != OS_API:
         # CASE: this patient has registered, but the user was previously registered with a
         # different device type. To keep the CSV munging code sane and data consistent (don't
         # cross the iOS and Android data streams!) we disallow it.
         return abort(400)
-    
+
     # At this point the device has been checked for validity and will be registered successfully.
     # Any errors after this point will be server errors and return 500 codes. the final return
     # will be the encryption key associated with this user.
-    
+
     study_object_id = user.study.object_id
     ParticipantBL.register_created(user, request.values['new_password'], OS_API, device_info)
 
@@ -282,6 +283,7 @@ def set_password(OS_API=""):
     participant.set_password(request.values["new_password"])
     return render_template('blank.html'), 200
 
+
 ################################################################################
 ########################## FILE NAME FUNCTIONALITY #############################
 ################################################################################
@@ -295,6 +297,7 @@ def grab_file_extension(file_name):
 def contains_valid_extension(file_name):
     """ Checks if string has a recognized file extension, this is not necessarily limited to 4 characters. """
     return '.' in file_name and grab_file_extension(file_name) in ALLOWED_EXTENSIONS
+
 
 ################################################################################
 ################################# Download #####################################
