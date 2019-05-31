@@ -39,7 +39,7 @@ mobile_api = Blueprint('mobile_api', __name__)
 @mobile_api.route('/upload', methods=['POST'])
 @mobile_api.route('/upload/ios/', methods=['GET', 'POST'])
 @determine_os_api
-@authenticate_user_ignore_password
+@authenticate_user
 def upload(OS_API=""):
     """ Entry point to upload GPS, Accelerometer, Audio, PowerState, Calls Log, Texts Log,
     Survey Response, and debugging files to s3.
@@ -207,8 +207,8 @@ def register_user_full(OS_API=""):
     device_info = _parse_device_info()
     study_object_id = request.values['studyId']
     password = request.values['password']
-    userName = request.values['userName']
-    participant = ParticipantBL.create_full(study_object_id, userName, password, OS_API, device_info)
+    user_name = request.values['userName']
+    participant = ParticipantBL.create_full(study_object_id, user_name, password, OS_API, device_info)
     patient_id = participant.patient_id
 
     device_settings = participant.study.device_settings.as_native_python()
@@ -307,7 +307,7 @@ def contains_valid_extension(file_name):
 @mobile_api.route('/download_surveys', methods=['GET', 'POST'])
 @mobile_api.route('/download_surveys/ios/', methods=['GET', 'POST'])
 @determine_os_api
-# @authenticate_user
+@authenticate_user
 def get_latest_surveys(OS_API=""):
     participant = Participant.objects.get(patient_id=request.values['patient_id'])
     study = participant.study

@@ -10,9 +10,7 @@ mobile_pages = Blueprint('mobile_pages', __name__)
 
 
 @mobile_pages.route('/graph', methods=['GET', 'POST'])
-# TODO SG: fix me! Now client-side authentication is totally broken!
-# @authenticate_user
-@authenticate_user_ignore_password
+@authenticate_user
 def fetch_graph():
     """ Fetches the patient's answers to the most recent survey, marked by survey ID. The results
     are dumped into a jinja template and pushed to the device. """
